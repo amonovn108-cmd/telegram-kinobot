@@ -8,7 +8,7 @@ from database import db
 logger = logging.getLogger(__name__)
 
 
-async def check_subscription(update: Update, context: CallbackContext) -> tuple:
+async def check_subscription(update: Update, context: CallbackContext):
     """Obunani tekshirish"""
     user_id = update.effective_user.id
     not_subscribed = []
@@ -27,7 +27,6 @@ async def check_subscription(update: Update, context: CallbackContext) -> tuple:
             
             if member.status in ["left", "kicked"]:
                 not_subscribed.append(channel)
-                # Kanal haqida ma'lumot olish
                 try:
                     chat = await context.bot.get_chat(f"@{channel}")
                     channel_info.append({
@@ -50,41 +49,71 @@ async def check_subscription(update: Update, context: CallbackContext) -> tuple:
     return len(not_subscribed) == 0, not_subscribed, channel_info
 
 
-async def show_main_menu(update: Update, context: CallbackContext, user_name: str):
-    """Asosiy menyuni ko'rsatish"""
-    # Kategoriya tugmalari
-    buttons = []
-    row = []
+async def start(update: Update, context: CallbackContext):
+    """START komandasi"""
+    user_id = str(update.effective_user.id)  # ✅ String!
+    user_name = update.effective_user.full_name
+    username = update.effective_user.username
     
-    for i, (code, cat) in enumerate(CATEGORIES.items(), 1):
-        row.append(InlineKeyboardButton(
+    logger.info(f"📥 /start: {user_name} ({user_id})")
+    
+    # Obunani tekshirish
+    is_subscribed, _, channels_info = await check_subscription(update, context)
+    
+    if not is_subscribed:
+        await show_subscription_message(update, channels_info)
+        return
+    
+    # Foydalanuvchini databasega qo'shish
+    is_new = db.add_user(user_id, username, user_name)
+    
+    # Yangi foydalanuvchi bo'lsa, adminga xabar
+    if is_new and user_id != ADMIN_ID:  # ✅ String bilan solishtirish
+        try:
+            admin_text = (
+                f"🆕 <b>YANGI FOYDALANUVCHI</b>\n\n"
+                f"👤 Ism: {user_name}\n"
+                f"🆔 ID: <code>{user_id}</code>\n"
+                f"📱 Username: @{username if username else 'yoq'}\n"
+                f"📅 Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,  # ✅ String!
+                text=admin_text,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.error(f"Adminga xabar yuborishda xatolik: {e}")
+    
+    # Asosiy menyu
+    await show_main_menu(update, context, user_name)
+
+
+async def show_main_menu(update: Update, context: CallbackContext, user_name: str):
+    """Asosiy menyu"""
+    buttons = []
+    
+    for code, cat in CATEGORIES.items():
+        buttons.append([InlineKeyboardButton(
             f"{cat['emoji']} {cat['name']}",
             callback_data=f"cat_{code}"
-        ))
-        if i % 2 == 0:
-            buttons.append(row)
-            row = []
+        )])
     
-    if row:
-        buttons.append(row)
-    
-    # Qo'shimcha tugmalar
-    buttons.append([
-        InlineKeyboardButton("📋 KINOLAR RO'YXATI", callback_data="show_movielist"),
-        InlineKeyboardButton("🆘 YORDAM", callback_data="show_help")
-    ])
+    buttons.append([InlineKeyboardButton(
+        "📋 KINOLAR RO'YXATI", 
+        callback_data="show_movielist"
+    )])
     
     await update.message.reply_text(
-        f"👋 Assalomu alaykum, <b>{user_name}</b>!\n"
-        f"🎥 Kino Botiga xush kelibsiz!\n\n"
-        f"Quyidagi kategoriyalardan birini tanlang:",
+        f"👋 Assalomu alaykum, <b>{user_name}</b>!\n\n"
+        f"Kategoriyani tanlang:",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="HTML"
     )
 
 
 async def show_subscription_message(update: Update, channels_info: list):
-    """Obuna bo'lmagan kanallar uchun xabar"""
+    """Obuna xabari"""
     text = "🔒 <b>BOTDAN FOYDALANISH UCHUN OBUNA BO'LING</b>\n\n"
     text += "📢 <b>MAJBURIY KANALLAR:</b>\n"
     
@@ -108,114 +137,48 @@ async def show_subscription_message(update: Update, channels_info: list):
     await update.message.reply_text(
         text,
         reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode="HTML",
-        disable_web_page_preview=True
+        parse_mode="HTML"
     )
 
 
-async def start(update: Update, context: CallbackContext) -> None:
-    """START komandasi - asosiy kirish nuqtasi"""
-    user_id = update.effective_user.id
-    user_name = update.effective_user.full_name
-    username = update.effective_user.username
-    
-    logger.info(f"📥 /start: {user_name} ({user_id})")
-    
-    # Obunani tekshirish
-    is_subscribed, _, channels_info = await check_subscription(update, context)
-    
-    if not is_subscribed:
-        await show_subscription_message(update, channels_info)
-        return
-    
-    # Foydalanuvchini databasega qo'shish
-    is_new = db.add_user(str(user_id), username, user_name)
-    
-    # Yangi foydalanuvchi bo'lsa, adminga xabar
-    if is_new and user_id != ADMIN_ID:
-        try:
-            admin_text = (
-                f"🆕 <b>YANGI FOYDALANUVCHI</b>\n\n"
-                f"👤 Ism: {user_name}\n"
-                f"🆔 ID: <code>{user_id}</code>\n"
-                f"📱 Username: @{username if username else 'yoq'}\n"
-                f"📅 Sana: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            )
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=admin_text,
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.error(f"Adminga xabar yuborishda xatolik: {e}")
-    
-    # Asosiy menyuni ko'rsatish
-    await show_main_menu(update, context, user_name)
-    
-    logger.info(f"✅ Foydalanuvchi: {user_name} ({user_id})")
-
-
-async def handle_back_to_main(update: Update, context: CallbackContext):
-    """Orqaga - asosiy menyuga qaytish"""
+async def back_to_main(update: Update, context: CallbackContext):
+    """Asosiy menyuga qaytish"""
     query = update.callback_query
     await query.answer()
     
     user_name = update.effective_user.full_name
     
-    # Asosiy menyu tugmalari
     buttons = []
-    row = []
-    
-    for i, (code, cat) in enumerate(CATEGORIES.items(), 1):
-        row.append(InlineKeyboardButton(
+    for code, cat in CATEGORIES.items():
+        buttons.append([InlineKeyboardButton(
             f"{cat['emoji']} {cat['name']}",
             callback_data=f"cat_{code}"
-        ))
-        if i % 2 == 0:
-            buttons.append(row)
-            row = []
+        )])
     
-    if row:
-        buttons.append(row)
-    
-    buttons.append([
-        InlineKeyboardButton("📋 KINOLAR RO'YXATI", callback_data="show_movielist"),
-        InlineKeyboardButton("🆘 YORDAM", callback_data="show_help")
-    ])
+    buttons.append([InlineKeyboardButton(
+        "📋 KINOLAR RO'YXATI", 
+        callback_data="show_movielist"
+    )])
     
     await query.edit_message_text(
-        f"👋 <b>{user_name}</b>, asosiy menyuga qaytdingiz!\n\n"
-        f"Quyidagi kategoriyalardan birini tanlang:",
+        f"👋 <b>{user_name}</b>, asosiy menyu:\n\n"
+        f"Kategoriyani tanlang:",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="HTML"
     )
 
 
 async def show_help(update: Update, context: CallbackContext):
-    """Yordam xabarini ko'rsatish"""
+    """Yordam"""
     query = update.callback_query
     await query.answer()
     
     help_text = (
         "🆘 <b>YORDAM</b>\n\n"
-        "📌 <b>QANDAY ISHLATILADI?</b>\n"
-        "1. Kategoriya tanlang (Kino/Serial/Multfilm)\n"
-        "2. Kino kodini kiriting (masalan: 123)\n"
-        "3. Kinoni tomosha qiling\n\n"
-        
-        "📌 <b>KINO KODI QANDAY TOPILADI?</b>\n"
-        "• /movielist - barcha kinolar ro'yxati\n"
-        "• Har bir kinoning o'z kodi bor\n\n"
-        
-        "📌 <b>AGAR SERIAL BO'LSA?</b>\n"
-        "• Serial kodini kiriting\n"
-        "• Qaysi qism kerakligini tanlang\n\n"
-        
-        "📌 <b>ADMIN UCHUN:</b>\n"
-        "• /addmovie - kino qo'shish\n"
-        "• /delete - kino o'chirish\n"
-        "• /send - xabar yuborish\n"
-        "• /stats - statistika"
+        "📌 Kategoriya tanlang\n"
+        "📌 Kino kodini kiriting\n"
+        "📌 Kinoni tomosha qiling\n\n"
+        "📋 /movielist - barcha kinolar"
     )
     
     buttons = [[InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")]]
@@ -229,5 +192,5 @@ async def show_help(update: Update, context: CallbackContext):
 
 # Handlerlar
 start_handler = CommandHandler("start", start)
-back_handler = CallbackQueryHandler(handle_back_to_main, pattern="^back_to_main$")
+back_handler = CallbackQueryHandler(back_to_main, pattern="^back_to_main$")
 help_handler = CallbackQueryHandler(show_help, pattern="^show_help$")
