@@ -1,6 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CallbackContext
+from telegram.ext import CommandHandler, CallbackContext
+from datetime import datetime
 from config import ADMIN_ID, MANDATORY_CHANNELS, CATEGORIES
 from database import db
 
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 async def check_subscription(update: Update, context: CallbackContext) -> tuple:
-    """Obunani tekshirish - foydalanuvchi barcha majburiy kanallarga obunami?"""
+    """Obunani tekshirish"""
     user_id = update.effective_user.id
     not_subscribed = []
     channel_info = []
@@ -51,7 +52,7 @@ async def check_subscription(update: Update, context: CallbackContext) -> tuple:
 
 async def show_main_menu(update: Update, context: CallbackContext, user_name: str):
     """Asosiy menyuni ko'rsatish"""
-    # Kategoriya tugmalari (2 tadan qator)
+    # Kategoriya tugmalari
     buttons = []
     row = []
     
@@ -60,11 +61,11 @@ async def show_main_menu(update: Update, context: CallbackContext, user_name: st
             f"{cat['emoji']} {cat['name']}",
             callback_data=f"cat_{code}"
         ))
-        if i % 2 == 0:  # Har 2 tadan keyin yangi qator
+        if i % 2 == 0:
             buttons.append(row)
             row = []
     
-    if row:  # Qolgan tugmalar
+    if row:
         buttons.append(row)
     
     # Qo'shimcha tugmalar
@@ -76,8 +77,7 @@ async def show_main_menu(update: Update, context: CallbackContext, user_name: st
     await update.message.reply_text(
         f"👋 Assalomu alaykum, <b>{user_name}</b>!\n"
         f"🎥 Kino Botiga xush kelibsiz!\n\n"
-        f"Quyidagi kategoriyalardan birini tanlang yoki "
-        f"kino kodini kiriting:",
+        f"Quyidagi kategoriyalardan birini tanlang:",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="HTML"
     )
@@ -121,17 +121,17 @@ async def start(update: Update, context: CallbackContext) -> None:
     
     logger.info(f"📥 /start: {user_name} ({user_id})")
     
-    # 1. OBUNANI TEKSHIRISH
+    # Obunani tekshirish
     is_subscribed, _, channels_info = await check_subscription(update, context)
     
     if not is_subscribed:
         await show_subscription_message(update, channels_info)
         return
     
-    # 2. FOYDALANUVCHINI DATABASEGA QO'SHISH
+    # Foydalanuvchini databasega qo'shish
     is_new = db.add_user(str(user_id), username, user_name)
     
-    # 3. AGAR YANGI FOYDALANUVCHI BO'LSA, ADMINGA XABAR
+    # Yangi foydalanuvchi bo'lsa, adminga xabar
     if is_new and user_id != ADMIN_ID:
         try:
             admin_text = (
@@ -149,10 +149,10 @@ async def start(update: Update, context: CallbackContext) -> None:
         except Exception as e:
             logger.error(f"Adminga xabar yuborishda xatolik: {e}")
     
-    # 4. ASOSIY MENYUNI KO'RSATISH
+    # Asosiy menyuni ko'rsatish
     await show_main_menu(update, context, user_name)
     
-    logger.info(f"✅ Foydalanuvchi qo'shildi: {user_name} ({user_id})")
+    logger.info(f"✅ Foydalanuvchi: {user_name} ({user_id})")
 
 
 async def handle_back_to_main(update: Update, context: CallbackContext):
@@ -211,8 +211,11 @@ async def show_help(update: Update, context: CallbackContext):
         "• Serial kodini kiriting\n"
         "• Qaysi qism kerakligini tanlang\n\n"
         
-        "📌 <b>MUAMMO BO'LSA?</b>\n"
-        "• @Admin ga murojaat qiling"
+        "📌 <b>ADMIN UCHUN:</b>\n"
+        "• /addmovie - kino qo'shish\n"
+        "• /delete - kino o'chirish\n"
+        "• /send - xabar yuborish\n"
+        "• /stats - statistika"
     )
     
     buttons = [[InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")]]
@@ -223,9 +226,6 @@ async def show_help(update: Update, context: CallbackContext):
         parse_mode="HTML"
     )
 
-
-# Import qilish uchun
-from datetime import datetime
 
 # Handlerlar
 start_handler = CommandHandler("start", start)
