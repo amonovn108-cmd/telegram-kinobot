@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 # Config
-from config import BOT_TOKEN
+from config import BOT_TOKEN, ADMIN_ID  # ADMIN_ID int bo'lishi kerak
 
 # Handlers
 from handlers.start import start_handler
@@ -42,49 +42,34 @@ def main():
     
     # Bot tokenini tekshirish
     if not BOT_TOKEN:
-        logger.error("BOT_TOKEN topilmadi!")
+        logger.error("❌ BOT_TOKEN topilmadi!")
         return
+    
+    logger.info(f"✅ Admin ID: {ADMIN_ID} (type: {type(ADMIN_ID)})")  # int ekanligini tekshirish
     
     # Application yaratish
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # ============ HANDLERLARNI QO'SHISH ============
+    # Handlerlarni qo'shish
+    app.add_handler(start_handler)                              # /start
+    app.add_handler(CallbackQueryHandler(callback_handler))     # Tugmalar
+    app.add_handler(search_handler)                              # Matn qidirish
     
-    # 1. START HANDLER - asosiy
-    app.add_handler(start_handler)
+    # Admin handlerlar
+    app.add_handler(add_movie_conv)                              # /addmovie
+    app.add_handler(delete_command)                              # /delete
+    app.add_handler(delete_category_handler)                     # delete category
+    app.add_handler(delete_code_handler)                         # delete code
+    app.add_handler(back_to_delete_handler)                      # back to delete
+    app.add_handler(send_command)                                 # /send
+    app.add_handler(broadcast_handler)                            # broadcast confirm
+    app.add_handler(stats_command_handler)                        # /stats
+    app.add_handler(cancel_command)                               # /cancel
     
-    # 2. CALLBACK HANDLER - barcha tugmalar
-    app.add_handler(CallbackQueryHandler(callback_handler))
-    
-    # 3. MOVIE HANDLER - kino qidirish
-    app.add_handler(search_handler)
-    
-    # 4. ADMIN HANDLERS - kino qo'shish (conversation)
-    app.add_handler(add_movie_conv)
-    
-    # 5. ADMIN DELETE HANDLERS
-    app.add_handler(delete_command)
-    app.add_handler(delete_category_handler)
-    app.add_handler(delete_code_handler)
-    app.add_handler(back_to_delete_handler)
-    
-    # 6. ADMIN SEND HANDLERS
-    app.add_handler(send_command)
-    app.add_handler(broadcast_handler)
-    
-    # 7. ADMIN STATS HANDLER
-    app.add_handler(stats_command_handler)
-    
-    # 8. ADMIN CANCEL HANDLER
-    app.add_handler(cancel_command)
-    
-    # 9. ERROR HANDLER (eng oxirgi)
+    # Error handler
     app.add_error_handler(error_handler)
     
-    # Botni ishga tushirish
     logger.info("✅ Bot ishga tushdi...")
-    logger.info(f"👤 Admin ID: {ADMIN_ID}")
-    
     app.run_polling()
 
 
