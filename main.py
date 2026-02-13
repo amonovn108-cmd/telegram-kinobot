@@ -1,136 +1,92 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
-    ContextTypes,
+    MessageHandler,
+    filters,
+    ConversationHandler
 )
-from config import ADMIN_ID, MANDATORY_CHANNELS, CATEGORIES
-from database import db
+
+# Config
+from config import BOT_TOKEN
+
+# Handlers
+from handlers.start import start_handler
+from handlers.callback import callback_handler
+from handlers.movie import search_handler
+from handlers.admin import (
+    add_movie_conv,
+    delete_command,
+    delete_category_handler,
+    delete_code_handler,
+    back_to_delete_handler,
+    send_command,
+    broadcast_handler,
+    stats_command_handler,
+    cancel_command
+)
+from handlers.error import error_handler
 
 # Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
 
-# ================= SUBSCRIPTION CHECK =================
-async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    not_subscribed = []
-
-    for channel in MANDATORY_CHANNELS:
-        channel = channel.strip()
-        if not channel:
-            continue
-
-        try:
-            member = await context.bot.get_chat_member(
-                chat_id=f"@{channel}",
-                user_id=user_id
-            )
-
-            if member.status in ["left", "kicked"]:
-                not_subscribed.append(channel)
-
-        except Exception as e:
-            logger.warning(f"Kanal tekshirishda xatolik @{channel}: {e}")
-            not_subscribed.append(channel)
-
-    return len(not_subscribed) == 0, not_subscribed
-
-
-# ================= START COMMAND =================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-    user_name = user.full_name
-    username = user.username
-
-    is_subscribed, channels = await check_subscription(update, context)
-
-    if not is_subscribed:
-        buttons = []
-
-        for channel in channels:
-            buttons.append([
-                InlineKeyboardButton(
-                    f"📢 @{channel}",
-                    url=f"https://t.me/{channel}"
-                )
-            ])
-
-        buttons.append([
-            InlineKeyboardButton(
-                "✅ Obuna bo'ldim!",
-                callback_data="obuna_tekshir"
-            )
-        ])
-
-        text = "⚠️ Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n"
-        for ch in channels:
-            text += f"📢 @{ch}\n"
-
-        await update.message.reply_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-        return
-
-    # Database
-    db.add_user(user_id, username, user_name)
-
-    # Menu
-    buttons = [
-        [InlineKeyboardButton(
-            cat["emoji"] + " " + cat["name"],
-            callback_data=f"kategoriya_{code}"
-        )]
-        for code, cat in CATEGORIES.items()
-    ]
-
-    await update.message.reply_text(
-        f"👋 Assalomu alaykum {user_name}!\n\nKategoriyani tanlang:",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-    logger.info(f"Yangi foydalanuvchi: {user_name} ({user_id})")
-
-
-# ================= CALLBACK =================
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "obuna_tekshir":
-        is_subscribed, channels = await check_subscription(update, context)
-
-        if is_subscribed:
-            await query.edit_message_text("✅ Obuna tasdiqlandi! /start ni qayta bosing.")
-        else:
-            await query.answer("❌ Hali ham obuna bo‘lmagansiz!", show_alert=True)
-
-
-# ================= MAIN =================
 def main():
-    token = os.getenv("BOT_TOKEN")
-
-    if not token:
-        raise ValueError("BOT_TOKEN topilmadi!")
-
-    app = ApplicationBuilder().token(token).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-
-    logger.info("Bot ishga tushdi...")
+    """Botni ishga tushirish"""
+    
+    # Bot tokenini tekshirish
+    if not BOT_TOKEN:
+        logger.error("BOT_TOKEN topilmadi!")
+        return
+    
+    # Application yaratish
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    # ============ HANDLERLARNI QO'SHISH ============
+    
+    # 1. START HANDLER - asosiy
+    app.add_handler(start_handler)
+    
+    # 2. CALLBACK HANDLER - barcha tugmalar
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    
+    # 3. MOVIE HANDLER - kino qidirish
+    app.add_handler(search_handler)
+    
+    # 4. ADMIN HANDLERS - kino qo'shish (conversation)
+    app.add_handler(add_movie_conv)
+    
+    # 5. ADMIN DELETE HANDLERS
+    app.add_handler(delete_command)
+    app.add_handler(delete_category_handler)
+    app.add_handler(delete_code_handler)
+    app.add_handler(back_to_delete_handler)
+    
+    # 6. ADMIN SEND HANDLERS
+    app.add_handler(send_command)
+    app.add_handler(broadcast_handler)
+    
+    # 7. ADMIN STATS HANDLER
+    app.add_handler(stats_command_handler)
+    
+    # 8. ADMIN CANCEL HANDLER
+    app.add_handler(cancel_command)
+    
+    # 9. ERROR HANDLER (eng oxirgi)
+    app.add_error_handler(error_handler)
+    
+    # Botni ishga tushirish
+    logger.info("✅ Bot ishga tushdi...")
+    logger.info(f"👤 Admin ID: {ADMIN_ID}")
+    
     app.run_polling()
 
 
 if __name__ == "__main__":
     main()
-
