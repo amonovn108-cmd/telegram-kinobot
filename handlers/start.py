@@ -1,10 +1,9 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CommandHandler, CallbackContext
+from telegram.ext import CommandHandler, CallbackContext, CallbackQueryHandler  # ✅ QO'SHILDI!
 from datetime import datetime
 from config import ADMIN_ID, MANDATORY_CHANNELS, CATEGORIES
 from database import db
-
 logger = logging.getLogger(__name__)
 
 
