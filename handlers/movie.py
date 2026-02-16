@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 async def category_handler(update: Update, context: CallbackContext):
     """Kategoriya tanlanganda"""
     query = update.callback_query
-    
     if not query.message:
         return
 
@@ -47,8 +46,8 @@ async def search_movie(update: Update, context: CallbackContext):
         await update.message.reply_text(
             "❌ Avval kategoriya tanlang! /start",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")            ]])
-        )
+                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
+            ]])        )
         return
     
     try:
@@ -96,8 +95,8 @@ async def search_by_name(update: Update, context: CallbackContext, name: str, ca
         )
         return
     
-    if len(movies) == 1:        await show_movie(update, context, movies[0])
-    else:
+    if len(movies) == 1:
+        await show_movie(update, context, movies[0])    else:
         text = f"🔍 '{name}' bo'yicha {len(movies)} ta natija:\n\n"
         for m in movies[:10]:
             parts = len(m.get('parts', [1]))
@@ -145,8 +144,8 @@ async def show_movie(update: Update, context: CallbackContext, movie: dict):
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(buttons)
             )
-        else:            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
+        else:
+            await context.bot.send_document(                chat_id=update.effective_chat.id,
                 document=file_id,
                 caption=caption,
                 parse_mode="HTML",
@@ -194,8 +193,8 @@ async def show_serial_parts(update: Update, context: CallbackContext, movie: dic
     )
 
 
-async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):    """Serial qismini yuborish"""
-    query = update.callback_query
+async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):
+    """Serial qismini yuborish"""    query = update.callback_query
     if not query.message:
         return
 
@@ -206,8 +205,6 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
         return
     
     parts = movie.get('parts', [])
-    
-    # Indexni to'g'rilash (0 dan boshlanadi, lekin tugmada 1 dan ketadi)
     real_index = part_index - 1
     
     if real_index >= len(parts) or real_index < 0:
@@ -243,10 +240,10 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
         logger.error(f"Video yuborishda xatolik: {e}")
         await query.edit_message_text("❌ Xatolik yuz berdi!")
 
+
 async def show_parts(update: Update, context: CallbackContext, code: int):
     """Serial qismlarini qayta ko'rsatish"""
-    query = update.callback_query
-    if not query.message:
+    query = update.callback_query    if not query.message:
         return
 
     movie = db.get_movie_by_code(code)
@@ -292,10 +289,10 @@ async def show_parts(update: Update, context: CallbackContext, code: int):
 # ==================== KINOLAR RO'YXATI ====================
 async def show_movielist(update: Update, context: CallbackContext):
     """Barcha kinolar ro'yxati"""
-    query = update.callback_query    if not query.message:
+    query = update.callback_query
+    if not query.message:
         return
-        
-    movies = db.get_all_movies()
+            movies = db.get_all_movies()
     
     if not movies:
         await query.edit_message_text(
@@ -341,10 +338,10 @@ async def show_category_movielist(update: Update, context: CallbackContext):
     
     movies = db.get_movies_by_category(category)
     emoji = CATEGORIES[category]['emoji']
-        if not movies:
+    
+    if not movies:
         await query.edit_message_text(
-            f"{emoji} {category} kategoriyasida kinolar yo'q",
-            reply_markup=InlineKeyboardMarkup([[
+            f"{emoji} {category} kategoriyasida kinolar yo'q",            reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
         )
@@ -379,6 +376,7 @@ async def show_category_page(update: Update, context: CallbackContext, category:
     """Kategoriya sahifasi"""
     pass
 
-# ==================== EXPORT UCHUN KO'PRIK ====================
-# main.py dagi 'search_handler' importi shu yerga to'g'ri keladi
+
+# ==================== ENG MUHIM QISM: EXPORT HANDLER ====================
+# Bu qator hech qanday funksiya ichida emas, chapdan to'g'ridan-to'g'ri boshlanadi.
 search_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, search_movie)
