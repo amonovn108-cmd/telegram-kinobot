@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, MessageHandler, filters
 from database import db
 from config import CATEGORIES
 
@@ -12,6 +12,9 @@ async def category_handler(update: Update, context: CallbackContext):
     """Kategoriya tanlanganda"""
     query = update.callback_query
     
+    if not query.message:
+        return
+
     category = query.data.replace("cat_", "")
     context.user_data['current_category'] = category
     
@@ -34,6 +37,9 @@ async def category_handler(update: Update, context: CallbackContext):
 # ==================== KINO QIDIRISH ====================
 async def search_movie(update: Update, context: CallbackContext):
     """Foydalanuvchi matn yozganda - kino qidirish"""
+    if not update.message or not update.message.text:
+        return
+        
     text = update.message.text.strip()
     category = context.user_data.get('current_category')
     
@@ -41,8 +47,7 @@ async def search_movie(update: Update, context: CallbackContext):
         await update.message.reply_text(
             "❌ Avval kategoriya tanlang! /start",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
-            ]])
+                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")            ]])
         )
         return
     
@@ -91,8 +96,7 @@ async def search_by_name(update: Update, context: CallbackContext, name: str, ca
         )
         return
     
-    if len(movies) == 1:
-        await show_movie(update, context, movies[0])
+    if len(movies) == 1:        await show_movie(update, context, movies[0])
     else:
         text = f"🔍 '{name}' bo'yicha {len(movies)} ta natija:\n\n"
         for m in movies[:10]:
@@ -141,8 +145,7 @@ async def show_movie(update: Update, context: CallbackContext, movie: dict):
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(buttons)
             )
-        else:
-            await context.bot.send_document(
+        else:            await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=file_id,
                 caption=caption,
@@ -191,9 +194,11 @@ async def show_serial_parts(update: Update, context: CallbackContext, movie: dic
     )
 
 
-async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):
-    """Serial qismini yuborish"""
+async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):    """Serial qismini yuborish"""
     query = update.callback_query
+    if not query.message:
+        return
+
     movie = db.get_movie_by_code(code)
     
     if not movie:
@@ -202,11 +207,14 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
     
     parts = movie.get('parts', [])
     
-    if part_index >= len(parts):
+    # Indexni to'g'rilash (0 dan boshlanadi, lekin tugmada 1 dan ketadi)
+    real_index = part_index - 1
+    
+    if real_index >= len(parts) or real_index < 0:
         await query.edit_message_text("❌ Qism topilmadi!")
         return
     
-    part = parts[part_index]
+    part = parts[real_index]
     file_id = part.get('file_id')
     
     if not file_id:
@@ -214,7 +222,7 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
         return
     
     caption = (
-        f"{CATEGORIES[movie['category']]['emoji']} <b>{movie['name']} - {part.get('name', f'{part_index+1}-qism')}</b>\n"
+        f"{CATEGORIES[movie['category']]['emoji']} <b>{movie['name']} - {part.get('name', f'{part_index}-qism')}</b>\n"
         f"🔢 Kod: {movie['code']}"
     )
     
@@ -235,10 +243,12 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
         logger.error(f"Video yuborishda xatolik: {e}")
         await query.edit_message_text("❌ Xatolik yuz berdi!")
 
-
 async def show_parts(update: Update, context: CallbackContext, code: int):
     """Serial qismlarini qayta ko'rsatish"""
     query = update.callback_query
+    if not query.message:
+        return
+
     movie = db.get_movie_by_code(code)
     
     if not movie:
@@ -282,7 +292,9 @@ async def show_parts(update: Update, context: CallbackContext, code: int):
 # ==================== KINOLAR RO'YXATI ====================
 async def show_movielist(update: Update, context: CallbackContext):
     """Barcha kinolar ro'yxati"""
-    query = update.callback_query
+    query = update.callback_query    if not query.message:
+        return
+        
     movies = db.get_all_movies()
     
     if not movies:
@@ -322,12 +334,14 @@ async def show_movielist(update: Update, context: CallbackContext):
 async def show_category_movielist(update: Update, context: CallbackContext):
     """Kategoriya bo'yicha kinolar ro'yxati"""
     query = update.callback_query
+    if not query.message:
+        return
+
     category = query.data.replace("list_", "")
     
     movies = db.get_movies_by_category(category)
     emoji = CATEGORIES[category]['emoji']
-    
-    if not movies:
+        if not movies:
         await query.edit_message_text(
             f"{emoji} {category} kategoriyasida kinolar yo'q",
             reply_markup=InlineKeyboardMarkup([[
@@ -356,14 +370,15 @@ async def show_category_movielist(update: Update, context: CallbackContext):
     )
 
 
-# ==================== SAHIFALASH ====================
+# ==================== SAHIFALASH (Kelajak uchun) ====================
 async def show_movielist_page(update: Update, context: CallbackContext, page: int):
     """Sahifalangan ro'yxat"""
-    # Bu funksiya keyin to'ldiriladi
     pass
-
 
 async def show_category_page(update: Update, context: CallbackContext, category: str, page: int):
     """Kategoriya sahifasi"""
-    # Bu funksiya keyin to'ldiriladi
     pass
+
+# ==================== EXPORT UCHUN KO'PRIK ====================
+# main.py dagi 'search_handler' importi shu yerga to'g'ri keladi
+search_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, search_movie)
