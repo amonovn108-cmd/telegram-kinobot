@@ -95,9 +95,8 @@ async def search_by_name(update: Update, context: CallbackContext, name: str, ca
         )
         return
     
-    # DIQQAT: Bu yerda yangi qator muhim!
-    if len(movies) == 1:        await show_movie(update, context, movies[0])
-    else:
+    if len(movies) == 1:
+        await show_movie(update, context, movies[0])    else:
         text = f"🔍 '{name}' bo'yicha {len(movies)} ta natija:\n\n"
         for m in movies[:10]:
             parts = len(m.get('parts', [1]))
@@ -145,8 +144,8 @@ async def show_movie(update: Update, context: CallbackContext, movie: dict):
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(buttons)
             )
-        else:            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
+        else:
+            await context.bot.send_document(                chat_id=update.effective_chat.id,
                 document=file_id,
                 caption=caption,
                 parse_mode="HTML",
@@ -194,8 +193,8 @@ async def show_serial_parts(update: Update, context: CallbackContext, movie: dic
     )
 
 
-async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):    """Serial qismini yuborish"""
-    query = update.callback_query
+async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):
+    """Serial qismini yuborish"""    query = update.callback_query
     if not query.message:
         return
 
@@ -243,8 +242,8 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
 
 
 async def show_parts(update: Update, context: CallbackContext, code: int):
-    """Serial qismlarini qayta ko'rsatish"""    query = update.callback_query
-    if not query.message:
+    """Serial qismlarini qayta ko'rsatish"""
+    query = update.callback_query    if not query.message:
         return
 
     movie = db.get_movie_by_code(code)
@@ -292,8 +291,8 @@ async def show_movielist(update: Update, context: CallbackContext):
     """Barcha kinolar ro'yxati"""
     query = update.callback_query
     if not query.message:
-        return        
-    movies = db.get_all_movies()
+        return
+            movies = db.get_all_movies()
     
     if not movies:
         await query.edit_message_text(
@@ -341,8 +340,8 @@ async def show_category_movielist(update: Update, context: CallbackContext):
     emoji = CATEGORIES[category]['emoji']
     
     if not movies:
-        await query.edit_message_text(            f"{emoji} {category} kategoriyasida kinolar yo'q",
-            reply_markup=InlineKeyboardMarkup([[
+        await query.edit_message_text(
+            f"{emoji} {category} kategoriyasida kinolar yo'q",            reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
         )
