@@ -96,7 +96,8 @@ async def search_by_name(update: Update, context: CallbackContext, name: str, ca
         return
     
     if len(movies) == 1:
-        await show_movie(update, context, movies[0])    else:
+        await show_movie(update, context, movies[0])    
+    else:
         text = f"🔍 '{name}' bo'yicha {len(movies)} ta natija:\n\n"
         for m in movies[:10]:
             parts = len(m.get('parts', [1]))
