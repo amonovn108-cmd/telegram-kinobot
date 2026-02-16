@@ -10,12 +10,12 @@ from telegram.ext import (
 )
 
 # Config
-from config import BOT_TOKEN, ADMIN_ID  # ADMIN_ID int bo'lishi kerak
+from config import BOT_TOKEN, ADMIN_ID
 
 # Handlers
 from handlers.start import start_handler
 from handlers.callback import callback_handler
-from handlers.movie import search_handler
+from handlers.movie import search_handler  # Endi bu ishlaydi!
 from handlers.admin import (
     add_movie_conv,
     delete_command,
@@ -40,31 +40,29 @@ logger = logging.getLogger(__name__)
 def main():
     """Botni ishga tushirish"""
     
-    # Bot tokenini tekshirish
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN topilmadi!")
         return
     
-    logger.info(f"✅ Admin ID: {ADMIN_ID} (type: {type(ADMIN_ID)})")  # int ekanligini tekshirish
+    logger.info(f"✅ Admin ID: {ADMIN_ID} (type: {type(ADMIN_ID)})")
     
-    # Application yaratish
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     # Handlerlarni qo'shish
     app.add_handler(start_handler)                              # /start
     app.add_handler(CallbackQueryHandler(callback_handler))     # Tugmalar
-    app.add_handler(search_handler)                              # Matn qidirish
+    app.add_handler(search_handler)                             # Matn qidirish (Endi xatosiz!)
     
     # Admin handlerlar
-    app.add_handler(add_movie_conv)                              # /addmovie
-    app.add_handler(delete_command)                              # /delete
-    app.add_handler(delete_category_handler)                     # delete category
-    app.add_handler(delete_code_handler)                         # delete code
-    app.add_handler(back_to_delete_handler)                      # back to delete
-    app.add_handler(send_command)                                 # /send
-    app.add_handler(broadcast_handler)                            # broadcast confirm
-    app.add_handler(stats_command_handler)                        # /stats
-    app.add_handler(cancel_command)                               # /cancel
+    app.add_handler(add_movie_conv)
+    app.add_handler(delete_command)
+    app.add_handler(delete_category_handler)
+    app.add_handler(delete_code_handler)
+    app.add_handler(back_to_delete_handler)
+    app.add_handler(send_command)
+    app.add_handler(broadcast_handler)
+    app.add_handler(stats_command_handler)
+    app.add_handler(cancel_command)
     
     # Error handler
     app.add_error_handler(error_handler)
