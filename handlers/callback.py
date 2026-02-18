@@ -78,19 +78,26 @@ async def callback_handler(update: Update, context: CallbackContext):
         from handlers.movie import send_part
         parts = data.split("_")
         code = int(parts[1])
-        part_index = int(parts[2]) - 1
+        part_index = int(parts[2])
         await send_part(update, context, code, part_index)
     
-    # ==================== O'CHIRISH TASDIQLASH ====================
-    elif data.startswith("confirm_yes_"):
-        from handlers.admin import admin_delete_execute
-        code = int(data.split("_")[2])
-        await admin_delete_execute(update, context, code)
+    # ==================== ADMIN - KINO QO'SHISH ====================
+    elif data.startswith("admin_cat_"):
+        from handlers.admin import add_movie_category
+        await add_movie_category(update, context)
     
-    elif data.startswith("confirm_no_"):
-        code = data.split("_")[2]
+    elif data == "admin_cancel":
+        await query.edit_message_text("❌ Kino qo'shish bekor qilindi.")
+    
+    # ==================== O'CHIRISH TASDIQLASH ====================
+    elif data.startswith("confirm_delete_"):
+        from handlers.admin import confirm_delete_movie
+        code = int(data.replace("confirm_delete_", ""))
+        await confirm_delete_movie(update, context)
+    
+    elif data.startswith("confirm_cancel_"):
         await query.edit_message_text(
-            f"❌ O'chirish bekor qilindi (Kod: {code})",
+            "❌ O'chirish bekor qilindi.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
@@ -101,23 +108,15 @@ async def callback_handler(update: Update, context: CallbackContext):
         from handlers.admin import delete_movie_category
         await delete_movie_category(update, context)
     
-    elif data == "back_to_admin_delete":
-        from handlers.admin import back_to_admin_delete
-        await back_to_admin_delete(update, context)
-    
     # ==================== BROADCAST ====================
-    elif data.startswith("broadcast_"):
+    elif data == "broadcast_confirm":
         from handlers.admin import broadcast_confirm
         await broadcast_confirm(update, context)
+    
+    elif data == "broadcast_cancel":
+        await query.edit_message_text("❌ Xabar yuborish bekor qilindi.")
     
     # ==================== NOMA'LUM ====================
     else:
         logger.warning(f"Noma'lum callback data: {data}")
         await query.answer("❌ Noma'lum buyruq!", show_alert=True)
-        # ==================== ADMIN - KINO QO'SHISH ====================
-    elif data.startswith("admin_cat_"):
-        from handlers.admin import add_movie_category
-        await add_movie_category(update, context)
-    
-    elif data == "admin_cancel":
-        await query.edit_message_text("❌ Kino qo'shish bekor qilindi.")
