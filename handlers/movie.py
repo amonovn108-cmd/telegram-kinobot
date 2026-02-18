@@ -146,7 +146,8 @@ async def show_movie(update: Update, context: CallbackContext, movie: dict):
                 reply_markup=InlineKeyboardMarkup(buttons)
             )
         else:
-            await context.bot.send_document(                chat_id=update.effective_chat.id,
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
                 document=file_id,
                 caption=caption,
                 parse_mode="HTML",
@@ -195,7 +196,8 @@ async def show_serial_parts(update: Update, context: CallbackContext, movie: dic
 
 
 async def send_part(update: Update, context: CallbackContext, code: int, part_index: int):
-    """Serial qismini yuborish"""    query = update.callback_query
+    """Serial qismini yuborish"""
+    query = update.callback_query
     if not query.message:
         return
 
@@ -244,7 +246,8 @@ async def send_part(update: Update, context: CallbackContext, code: int, part_in
 
 async def show_parts(update: Update, context: CallbackContext, code: int):
     """Serial qismlarini qayta ko'rsatish"""
-    query = update.callback_query    if not query.message:
+    query = update.callback_query
+    if not query.message:
         return
 
     movie = db.get_movie_by_code(code)
@@ -293,7 +296,8 @@ async def show_movielist(update: Update, context: CallbackContext):
     query = update.callback_query
     if not query.message:
         return
-            movies = db.get_all_movies()
+    
+    movies = db.get_all_movies()
     
     if not movies:
         await query.edit_message_text(
@@ -342,7 +346,8 @@ async def show_category_movielist(update: Update, context: CallbackContext):
     
     if not movies:
         await query.edit_message_text(
-            f"{emoji} {category} kategoriyasida kinolar yo'q",            reply_markup=InlineKeyboardMarkup([[
+            f"{emoji} {category} kategoriyasida kinolar yo'q",
+            reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
         )
