@@ -32,26 +32,38 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    """Botni ishga tushirish"""
+    
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN yo'q!")
         return
     
-    logger.info(f"✅ Admin: {ADMIN_ID}")
+    logger.info(f"✅ Admin ID: {ADMIN_ID}")
     
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    app.add_handler(start_handler)
-    app.add_handler(CallbackQueryHandler(callback_handler))
-    app.add_handler(search_handler)
+    # ==================== ODDIY HANDLERLAR ====================
+    app.add_handler(start_handler)                              # /start
+    app.add_handler(CallbackQueryHandler(callback_handler))     # Tugmalar
+    app.add_handler(search_handler)                             # Kino qidirish
     
+    # ==================== ADMIN HANDLERLAR ====================
+    # Add movie
     app.add_handler(add_movie_conv)
+    
+    # Delete movie
     app.add_handler(delete_movie_conv)
     app.add_handler(confirm_delete_handler)
     app.add_handler(cancel_delete_handler)
+    
+    # Send broadcast
     app.add_handler(send_handler)
     app.add_handler(broadcast_handler)
+    
+    # Stats
     app.add_handler(stats_handler)
     
+    # ==================== ERROR HANDLER ====================
     app.add_error_handler(error_handler)
     
     logger.info("✅ Bot ishga tushdi...")
