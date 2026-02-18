@@ -114,3 +114,10 @@ async def callback_handler(update: Update, context: CallbackContext):
     else:
         logger.warning(f"Noma'lum callback data: {data}")
         await query.answer("❌ Noma'lum buyruq!", show_alert=True)
+        # ==================== ADMIN - KINO QO'SHISH ====================
+    elif data.startswith("admin_cat_"):
+        from handlers.admin import add_movie_category
+        await add_movie_category(update, context)
+    
+    elif data == "admin_cancel":
+        await query.edit_message_text("❌ Kino qo'shish bekor qilindi.")
