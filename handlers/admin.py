@@ -1,6 +1,13 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CallbackContext, ConversationHandler, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    CallbackContext,
+    ConversationHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    CallbackQueryHandler
+)
 from database import db
 from config import ADMIN_ID, CATEGORIES
 
@@ -163,6 +170,8 @@ async def add_movie_parts_count(update: Update, context: CallbackContext) -> int
         return PARTS_COUNT
     
     context.user_data['new_movie_parts_count'] = parts_count
+    context.user_data['new_movie_parts'] = []
+    context.user_data['current_part_index'] = 0
     
     await update.message.reply_text(
         f"✅ {parts_count} qismli serial\n\n"
@@ -170,11 +179,7 @@ async def add_movie_parts_count(update: Update, context: CallbackContext) -> int
         f"1-qism videosini yuboring:"
     )
     
-    # Qismlar ro'yxatini yaratish
-    context.user_data['new_movie_parts'] = []
-    context.user_data['current_part'] = 1
-    
-    return VIDEO  # Qayta video qabul qilish uchun
+    return VIDEO
 
 
 async def add_movie_part_video(update: Update, context: CallbackContext) -> int:
@@ -187,23 +192,24 @@ async def add_movie_part_video(update: Update, context: CallbackContext) -> int:
         await update.message.reply_text("❌ Iltimos, video yuboring!")
         return VIDEO
     
-    current_part = context.user_data.get('current_part', 1)
+    current_part_index = context.user_data.get('current_part_index', 0)
     parts_count = context.user_data.get('new_movie_parts_count', 1)
     
     # Qismni saqlash
     parts = context.user_data.get('new_movie_parts', [])
     parts.append({
-        'name': f"{current_part}-qism",
+        'name': f"{current_part_index + 1}-qism",
         'file_id': file_id
     })
     context.user_data['new_movie_parts'] = parts
+    current_part_index += 1
+    context.user_data['current_part_index'] = current_part_index
     
     # Keyingi qism
-    if current_part < parts_count:
-        context.user_data['current_part'] = current_part + 1
+    if current_part_index < parts_count:
         await update.message.reply_text(
-            f"✅ {current_part}-qism qabul qilindi!\n\n"
-            f"Endi {current_part + 1}-qism videosini yuboring:"
+            f"✅ {current_part_index}-qism qabul qilindi!\n\n"
+            f"Endi {current_part_index + 1}-qism videosini yuboring:"
         )
         return VIDEO
     else:
@@ -301,6 +307,8 @@ async def delete_movie_start(update: Update, context: CallbackContext) -> None:
     if row:
         buttons.append(row)
     
+    buttons.append([InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")])
+    
     await update.message.reply_text(
         "🗑 <b>KINO O'CHIRISH</b>\n\n"
         "Kategoriyani tanlang:",
@@ -341,7 +349,7 @@ async def delete_movie_code(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text(
             f"❌ {code} kodli kino topilmadi!",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 QAYTISH", callback_data="back_to_admin_delete")
+                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
         )
         return
@@ -352,7 +360,7 @@ async def delete_movie_code(update: Update, context: CallbackContext) -> None:
             f"❌ Bu kod {category_emoji} {movie['category']} kategoriyasiga tegishli!\n"
             f"Siz {CATEGORIES[category]['emoji']} {category} tanlagansiz.",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 QAYTISH", callback_data="back_to_admin_delete")
+                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
             ]])
         )
         return
@@ -371,10 +379,10 @@ async def delete_movie_code(update: Update, context: CallbackContext) -> None:
     
     buttons = [
         [
-            InlineKeyboardButton("✅ HA", callback_data=f"confirm_yes_{code}"),
-            InlineKeyboardButton("❌ YO'Q", callback_data=f"confirm_no_{code}")
+            InlineKeyboardButton("✅ HA", callback_data=f"confirm_delete_{code}"),
+            InlineKeyboardButton("❌ YO'Q", callback_data=f"confirm_cancel_{code}")
         ],
-        [InlineKeyboardButton("🔙 QAYTISH", callback_data="back_to_admin_delete")]
+        [InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")]
     ]
     
     await update.message.reply_text(
@@ -384,8 +392,13 @@ async def delete_movie_code(update: Update, context: CallbackContext) -> None:
     )
 
 
-async def admin_delete_execute(query, context: CallbackContext, code: int) -> None:
-    """Kino o'chirishni amalga oshirish"""
+async def confirm_delete_movie(update: Update, context: CallbackContext) -> None:
+    """Kino o'chirishni tasdiqlash"""
+    query = update.callback_query
+    await query.answer()
+    
+    code = int(query.data.replace("confirm_delete_", ""))
+    
     movie = db.get_movie_by_code(code)
     
     if not movie:
@@ -417,31 +430,16 @@ async def admin_delete_execute(query, context: CallbackContext, code: int) -> No
         )
 
 
-async def back_to_admin_delete(update: Update, context: CallbackContext) -> None:
-    """Admin o'chirishga qaytish"""
+async def confirm_cancel(update: Update, context: CallbackContext) -> None:
+    """O'chirishni bekor qilish"""
     query = update.callback_query
     await query.answer()
     
-    buttons = []
-    row = []
-    
-    for i, (code, cat) in enumerate(CATEGORIES.items(), 1):
-        row.append(InlineKeyboardButton(
-            f"{cat['emoji']} {cat['name']}",
-            callback_data=f"delete_cat_{code}"
-        ))
-        if i % 2 == 0:
-            buttons.append(row)
-            row = []
-    
-    if row:
-        buttons.append(row)
-    
     await query.edit_message_text(
-        "🗑 <b>KINO O'CHIRISH</b>\n\n"
-        "Kategoriyani tanlang:",
-        reply_markup=InlineKeyboardMarkup(buttons),
-        parse_mode="HTML"
+        "❌ O'chirish bekor qilindi.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
+        ]])
     )
 
 
@@ -495,6 +493,7 @@ async def broadcast_confirm(update: Update, context: CallbackContext) -> None:
     
     if query.data == "broadcast_cancel":
         await query.edit_message_text("❌ Xabar yuborish bekor qilindi.")
+        context.user_data.clear()
         return
     
     message = context.user_data.get('broadcast_message')
@@ -559,17 +558,10 @@ async def stats_command(update: Update, context: CallbackContext) -> None:
         if cat in movies_by_category:
             movies_by_category[cat] += 1
     
-    # Oxirgi 24 soatdagi foydalanuvchilar
-    from datetime import datetime, timedelta
-    yesterday = datetime.now() - timedelta(days=1)
-    new_users_today = 0
-    # Bu qism database funksiyasi bilan to'ldiriladi
-    
     text = (
         f"📊 <b>BOT STATISTIKASI</b>\n\n"
         f"👥 <b>FOYDALANUVCHILAR:</b>\n"
-        f"├─ Jami: {len(users)} ta\n"
-        f"└─ Oxirgi 24 soat: +{new_users_today} ta\n\n"
+        f"├─ Jami: {len(users)} ta\n\n"
         
         f"🎬 <b>KINOLAR:</b>\n"
         f"├─ Jami: {len(movies)} ta\n"
@@ -600,7 +592,7 @@ async def cancel(update: Update, context: CallbackContext) -> int:
 add_movie_conv = ConversationHandler(
     entry_points=[CommandHandler("addmovie", add_movie_start)],
     states={
-        CATEGORY: [CallbackQueryHandler(add_movie_category, pattern="^admin_")],
+        CATEGORY: [CallbackQueryHandler(add_movie_category, pattern="^admin_cat_")],
         CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_movie_code)],
         NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_movie_name)],
         VIDEO: [
@@ -614,11 +606,15 @@ add_movie_conv = ConversationHandler(
 )
 
 # Delete handlers
+delete_handler = CommandHandler("delete", delete_movie_start)
 delete_category_handler = CallbackQueryHandler(delete_movie_category, pattern="^delete_cat_")
 delete_code_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, delete_movie_code)
-back_to_delete_handler = CallbackQueryHandler(back_to_admin_delete, pattern="^back_to_admin_delete$")
+confirm_delete_handler = CallbackQueryHandler(confirm_delete_movie, pattern="^confirm_delete_")
+confirm_cancel_handler = CallbackQueryHandler(confirm_cancel, pattern="^confirm_cancel_")
 
 # Broadcast handlers
-broadcast_handler = CallbackQueryHandler(broadcast_confirm, pattern="^broadcast_")
+send_handler = CommandHandler("send", send_message_start)
+broadcast_confirm_handler = CallbackQueryHandler(broadcast_confirm, pattern="^broadcast_")
 
-# Other 
+# Stats handler
+stats_handler = CommandHandler("stats", stats_command)
