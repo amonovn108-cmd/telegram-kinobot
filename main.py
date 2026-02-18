@@ -15,17 +15,17 @@ from config import BOT_TOKEN, ADMIN_ID
 # Handlers
 from handlers.start import start_handler
 from handlers.callback import callback_handler
-from handlers.movie import search_handler  # Endi bu ishlaydi!
+from handlers.movie import search_handler
 from handlers.admin import (
     add_movie_conv,
-    delete_command,
+    delete_handler,
     delete_category_handler,
     delete_code_handler,
-    back_to_delete_handler,
-    send_command,
-    broadcast_handler,
-    stats_command_handler,
-    cancel_command
+    confirm_delete_handler,
+    confirm_cancel_handler,
+    send_handler,
+    broadcast_confirm_handler,
+    stats_handler
 )
 from handlers.error import error_handler
 
@@ -49,20 +49,20 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     # Handlerlarni qo'shish
-    app.add_handler(start_handler)                              # /start
-    app.add_handler(CallbackQueryHandler(callback_handler))     # Tugmalar
-    app.add_handler(search_handler)                             # Matn qidirish (Endi xatosiz!)
+    app.add_handler(start_handler)
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    app.add_handler(search_handler)
     
     # Admin handlerlar
     app.add_handler(add_movie_conv)
-    app.add_handler(delete_command)
+    app.add_handler(delete_handler)
     app.add_handler(delete_category_handler)
     app.add_handler(delete_code_handler)
-    app.add_handler(back_to_delete_handler)
-    app.add_handler(send_command)
-    app.add_handler(broadcast_handler)
-    app.add_handler(stats_command_handler)
-    app.add_handler(cancel_command)
+    app.add_handler(confirm_delete_handler)
+    app.add_handler(confirm_cancel_handler)
+    app.add_handler(send_handler)
+    app.add_handler(broadcast_confirm_handler)
+    app.add_handler(stats_handler)
     
     # Error handler
     app.add_error_handler(error_handler)
