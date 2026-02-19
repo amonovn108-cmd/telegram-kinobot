@@ -1,24 +1,42 @@
-BOT_TOKEN = "BOT_TOKENINGIZNI_BU_YERGA_YOZING"
-ADMIN_ID = 123456789   # O'zingizning Telegram user ID (raqam bilan)
+import os
 
-DATABASE_URL = "postgresql://user:password@localhost:5432/kinobot"
+# =========================
+# TELEGRAM SOZLAMALAR
+# =========================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
-LOG_LEVEL = "INFO"
-DEBUG = False
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN topilmadi!")
 
+if not ADMIN_ID:
+    raise ValueError("❌ ADMIN_ID topilmadi!")
+
+# =========================
+# DATABASE SOZLAMALAR
+# =========================
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL topilmadi!")
+
+# Railway ba'zida postgres:// beradi
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# =========================
+# LOG
+# =========================
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+# =========================
+# KATEGORIYALAR
+# =========================
 CATEGORIES = {
-    "kino": {
-        "name": "Kino",
-        "emoji": "🎬"
-    },
-    "serial": {
-        "name": "Serial",
-        "emoji": "📺"
-    },
-    "multfilm": {
-        "name": "Multfilm",
-        "emoji": "🐰"
-    }
+    "kino": {"name": "Kino", "emoji": "🎬"},
+    "serial": {"name": "Serial", "emoji": "📺"},
+    "multfilm": {"name": "Multfilm", "emoji": "🐰"}
 }
 
 CALLBACK_PATTERNS = {
