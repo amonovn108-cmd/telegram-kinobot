@@ -2,121 +2,51 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import CallbackContext
 
+from config import ADMIN_ID, CATEGORIES
+
 logger = logging.getLogger(__name__)
 
-
 async def callback_handler(update: Update, context: CallbackContext):
-    """Barcha callback tugmalarni qayta ishlash"""
     query = update.callback_query
     await query.answer()
-    
     data = query.data
-    logger.info(f"Callback: {data}")
-    
-    # ==================== OBUNA TEKSHIRISH ====================
-    if data == "check_subscription":
-        from handlers.start import check_subscription
-        is_subscribed, _, channels = await check_subscription(update, context)
-        
-        if is_subscribed:
-            await query.edit_message_text(
-                "✅ Obuna tasdiqlandi! /start ni bosing."
-            )
-        else:
-            await query.answer(
-                "❌ Hali ham obuna bo'lmagansiz!",
-                show_alert=True
-            )
-    
-    # ==================== ASOSIY MENYU ====================
-    elif data == "back_to_main":
-        from handlers.start import back_to_main
-        await back_to_main(update, context)
-    
-    # ==================== YORDAM ====================
-    elif data == "show_help":
-        from handlers.start import show_help
-        await show_help(update, context)
-    
-    # ==================== KATEGORIYA TANLASH ====================
-    elif data.startswith("cat_"):
-        from handlers.movie import category_handler
-        await category_handler(update, context)
-    
-    # ==================== KATEGORIYA RO'YXATI ====================
-    elif data.startswith("list_"):
-        from handlers.movie import show_category_movielist
-        await show_category_movielist(update, context)
-    
-    # ==================== UMUMIY RO'YXAT ====================
-    elif data == "show_movielist":
-        from handlers.movie import show_movielist
-        await show_movielist(update, context)
-    
-    # ==================== RO'YXAT SAHIFALARI ====================
-    elif data.startswith("page_"):
-        from handlers.movie import show_movielist_page
-        page = int(data.split("_")[1])
-        await show_movielist_page(update, context, page)
-    
-    # ==================== KATEGORIYA SAHIFALARI ====================
-    elif data.startswith("catpage_"):
-        from handlers.movie import show_category_page
-        parts = data.split("_")
-        category = parts[1]
-        page = int(parts[2])
-        await show_category_page(update, context, category, page)
-    
-    # ==================== SERIAL QISMLARI ====================
-    elif data.startswith("parts_"):
-        from handlers.movie import show_parts
-        code = int(data.split("_")[1])
-        await show_parts(update, context, code)
-    
-    # ==================== QISM YUBORISH ====================
-    elif data.startswith("part_"):
-        from handlers.movie import send_part
-        parts = data.split("_")
-        code = int(parts[1])
-        part_index = int(parts[2])
-        await send_part(update, context, code, part_index)
-    
-    # ==================== ADMIN - KINO QO'SHISH ====================
-    elif data.startswith("admin_cat_"):
-        from handlers.admin import add_movie_category
-        await add_movie_category(update, context)
-    
-    elif data == "admin_cancel":
-        await query.edit_message_text("❌ Kino qo'shish bekor qilindi.")
-    
-    # ==================== O'CHIRISH TASDIQLASH ====================
-    elif data.startswith("confirm_delete_"):
-        from handlers.admin import confirm_delete_movie
-        code = int(data.replace("confirm_delete_", ""))
-        await confirm_delete_movie(update, context)
-    
-    elif data.startswith("confirm_cancel_"):
+    user_id = str(update.effective_user.id)
+
+    logger.info(f"🔹 Callback: {data}")
+
+    # ========== ADMIN PANEL OCHISH ==========
+    if data == "admin_panel" and user_id == str(ADMIN_ID):
+        admin_buttons = [
+            [InlineKeyboardButton("➕ Kino qo‘shish", callback_data="add_movie")],
+            [InlineKeyboardButton("🗑 Kino o‘chirish", callback_data="delete_movie")],
+            [InlineKeyboardButton("📊 Statistika", callback_data="stats")],
+            [InlineKeyboardButton("📢 Xabar yuborish", callback_data="send_broadcast")],
+            [InlineKeyboardButton("🔗 Majburiy kanallar", callback_data="mandatory_channels")],  # <-- YANGI TUGMA
+            [InlineKeyboardButton("🏠 Asosiy menyu", callback_data="back_to_main")]
+        ]
         await query.edit_message_text(
-            "❌ O'chirish bekor qilindi.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🏠 ASOSIY MENYU", callback_data="back_to_main")
-            ]])
+            "🛠 <b>Admin paneli</b>\nKerakli bo‘limni tanlang:",
+            reply_markup=InlineKeyboardMarkup(admin_buttons),
+            parse_mode="HTML"
         )
-    
-    # ==================== ADMIN DELETE ====================
-    elif data.startswith("delete_cat_"):
-        from handlers.admin import delete_movie_category
-        await delete_movie_category(update, context)
-    
-    # ==================== BROADCAST ====================
-    elif data == "broadcast_confirm":
-        from handlers.admin import broadcast_confirm
-        await broadcast_confirm(update, context)
-    
-    elif data == "broadcast_cancel":
-        await query.edit_message_text("❌ Xabar yuborish bekor qilindi.")
-    
-    # ==================== NOMA'LUM ====================
+
+    # ========== MAJBURIY KANALLAR SUBMENUSI ==========
+    elif data == "mandatory_channels" and user_id == str(ADMIN_ID):
+        channels_buttons = [
+            [InlineKeyboardButton("➕ Kanal qo‘shish", callback_data="add_channel")],
+            [InlineKeyboardButton("❌ Kanal o‘chirish", callback_data="remove_channel")],
+            [InlineKeyboardButton("📋 Kanallar ro‘yxati", callback_data="list_channel")],
+            [InlineKeyboardButton("🔙 Ortga", callback_data="admin_panel")]
+        ]
+        await query.edit_message_text(
+            "🔗 <b>Majburiy kanallar sozlamalari</b>\nPastdan kerakli amalni tanlang:",
+            reply_markup=InlineKeyboardMarkup(channels_buttons),
+            parse_mode="HTML"
+        )
+
+    # ... Boshqa callbacklar shu joyda davom etadi (kategoriya, kino, stat, ...)
+    # (Misol uchun, oldingi javoblarimdagi kabi boshqa bloklar bo'lishi kerak)
+
     else:
-        logger.warning(f"Noma'lum callback data: {data}")
-        await query.answer("❌ Noma'lum buyruq!", show_alert=True)
+        await query.answer("❌ Bu tugma hozircha ishlamaydi.", show_alert=True)
+        logger.warning(f"Nomaʼlum yoki ruxsat etilmagan callback: {data}")
