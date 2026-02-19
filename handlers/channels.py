@@ -1,21 +1,18 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import CallbackContext, ConversationHandler, MessageHandler, CallbackQueryHandler, filters
-
-from config import ADMIN_ID
+from database import db
 
 logger = logging.getLogger(__name__)
-
-# Faqat config.py da majburiy kanallarni dastur tutadi (dynamic qilsangiz database bo'lsa yaxshi)
-MANDATORY_CHANNELS = []
 
 ADD_CHANNEL, REMOVE_CHANNEL = range(2)
 
 def get_channels_list_text():
-    if not MANDATORY_CHANNELS:
+    channels = db.list_channels()
+    if not channels:
         return "📋 Majburiy kanallar ro'yxati hozircha BO'SH."
     text = "📋 Majburiy kanallar ro'yxati:\n"
-    for i, ch in enumerate(MANDATORY_CHANNELS, 1):
+    for i, ch in enumerate(channels, 1):
         text += f"{i}. @{ch}\n"
     return text
 
@@ -26,14 +23,13 @@ async def add_channel_prompt(update: Update, context: CallbackContext):
     return ADD_CHANNEL
 
 async def add_channel(update: Update, context: CallbackContext):
-    username = update.message.text.strip().replace("@", "")
+    username = update.message.text.strip().replace("@", "").lower()
     if not username.isalnum():
-        await update.message.reply_text("❌ Xato! Kanal username’ini (@ belgisiz) yuboring.")
+        await update.message.reply_text("❌ Xato! Kanal username’ini (@ belgisiz, faqat a–z, 0–9) yuboring.")
         return ADD_CHANNEL
-    if username in MANDATORY_CHANNELS:
-        await update.message.reply_text("❗️ Bu kanal ro'yxatda bor.")
+    if not db.add_channel(username):
+        await update.message.reply_text("❗️ Bu kanal allaqachon ro'yxatda!\n" + get_channels_list_text())
         return ADD_CHANNEL
-    MANDATORY_CHANNELS.append(username)
     await update.message.reply_text(
         f"✅ @{username} kanal qo'shildi!\n\n" + get_channels_list_text(),
         reply_markup=InlineKeyboardMarkup([
@@ -43,7 +39,8 @@ async def add_channel(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 async def remove_channel_prompt(update: Update, context: CallbackContext):
-    if not MANDATORY_CHANNELS:
+    channels = db.list_channels()
+    if not channels:
         await update.callback_query.edit_message_text(
             "❗️ Majburiy kanallar ro'yxati bo'sh!",
             reply_markup=InlineKeyboardMarkup([
@@ -53,7 +50,7 @@ async def remove_channel_prompt(update: Update, context: CallbackContext):
         return ConversationHandler.END
     buttons = [
         [InlineKeyboardButton(f"❌ {ch}", callback_data=f"del_ch_{ch}")]
-        for ch in MANDATORY_CHANNELS
+        for ch in channels
     ]
     buttons.append([InlineKeyboardButton("🔙 Ortga", callback_data="mandatory_channels")])
     await update.callback_query.edit_message_text(
@@ -65,11 +62,10 @@ async def remove_channel_prompt(update: Update, context: CallbackContext):
 async def remove_channel(update: Update, context: CallbackContext):
     query = update.callback_query
     chname = query.data.replace("del_ch_", "")
-    if chname in MANDATORY_CHANNELS:
-        MANDATORY_CHANNELS.remove(chname)
-        text = f"❌ @{chname} kanal o'chirildi!\n\n" + get_channels_list_text()
+    if not db.remove_channel(chname):
+        text = f"❗️ Bunday kanal topilmadi.\n" + get_channels_list_text()
     else:
-        text = "❗️ Bunday kanal topilmadi.\n\n" + get_channels_list_text()
+        text = f"❌ @{chname} kanal o'chirildi!\n{get_channels_list_text()}"
     await query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup([
@@ -87,7 +83,6 @@ async def list_channels(update: Update, context: CallbackContext):
         ])
     )
 
-# HANDLERLAR
 add_channel_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(add_channel_prompt, pattern="add_channel")],
     states={
@@ -107,7 +102,3 @@ remove_channel_conv = ConversationHandler(
 )
 
 list_channels_handler = CallbackQueryHandler(list_channels, pattern="list_channel")
-
-# Ushbu handlerlarni (add_channel_conv, remove_channel_conv, list_channels_handler)
-# main.py yoki callback.py ichida app.add_handler() bilan ro'yxatdan o'tkazing
-
